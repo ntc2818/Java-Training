@@ -1,14 +1,14 @@
-package in.conceptarchitect.banking;
-
 public class Bank {
 	
 	int accountCount=0;   	
 	String name;
 	double interestRate;
-	public final int MAX_ACCOUNTS=10; //PROBLEM: we can't have more than this much account
+	//public final int MAX_ACCOUNTS=10; //PROBLEM: we can't have more than this much account
 	
 	//storage for BankAccounts
-	BankAccount [] accounts=new BankAccount[MAX_ACCOUNTS];
+	//BankAccount [] accounts=new BankAccount[MAX_ACCOUNTS];
+	ArrayList<BankAccount> accounts = new ArrayList<BankAccount>();
+
 	
 	public Bank(String name, double interstRate) {
 	
@@ -36,16 +36,36 @@ public class Bank {
 	
 	
 	private BankAccount getAccountById(int accountNumber) {
-		if(accountNumber<1 || accountNumber>accountCount)
-			return null; //no such account
-		
-		BankAccount account=accounts[accountNumber];
+		//if(accountNumber<1 || accountNumber>accountCount || accounts[accountNumber]==null)
+		if(accountNumber<1 || accountNumber>accountCount || accounts.get(accountNumber)==null)
+			//return null; //no such account
+			throw new InvalidAccountNumberException(accountNumber);
+		BankAccount account=accounts.get(accountNumber);
+		//BankAccount account=accounts[accountNumber];
 		return account;
 	}
 	
-	public int openAccount(String name, String password, double amount) {
+	
+	
+	public void deposit(int accountNumber, double amount) {
+		BankAccount account = getAccountById(accountNumber);
+		account.deposit(amount);
+	}
+	
+	
+	public int openAccount(String accountType,String name, String password,  double amount) {
 		
-		BankAccount account=new BankAccount(name,password,amount);
+		BankAccount account=null;
+		
+		
+		switch(accountType.toLowerCase()) {
+		
+			default: case "savings": account=new SavingsAccount(name,password,amount);break;
+			case "current": account=new CurrentAccount(name,password,amount);break;
+			//case "overdraft":account=new OverDraftAccount(name,password,amount); break;
+		}
+		
+		
 		
 		//Bank should set the account Number which is accessible due to package scope
 		account.accountNumber=++accountCount;
@@ -54,7 +74,7 @@ public class Bank {
 		
 		//account number x will be stored on location x
 		//we will never use index 0 to store a account
-		accounts[account.accountNumber]=account;
+		accounts.add(account);  //add all accounts to the same collection
 		
 		//return the account Number
 		return account.accountNumber;
@@ -62,73 +82,48 @@ public class Bank {
 	
 	
 	
-	public boolean close(int accountNumber, String password) {
+	public void close(int accountNumber, String password) {
 		BankAccount account = getAccountById(accountNumber);
-		if(account!=null) {
-		//TODO: validate password is correct
-		if(!account.authenticate(password))
-			return false; //error
 		
+		account.authenticate(password);
+				
 		
-		//TODO: validate it has balance>0
 		if(account.getBalance()<0)
-			return false; //error. can't close account with negative balance
+			throw new InsufficientBalanceException(accountNumber, -account.getBalance()," You need to clear the overdue to close your account");
 		
 		
-		//TODO: close the account and return true
-		accounts[accountNumber]=null; //remove the account
-		return true;
+		accounts.remove(accountNumber); //remove the account
+
 	}
-		else 
-			return false;
-	}
-	public boolean deposit(int accountNumber, double amount) {
+	
+	
+	
+	
+	
+	public void withdraw(int accountNumber, double amount, String password) {
 		BankAccount account = getAccountById(accountNumber);
-		
-		if(account==null)
-			return false; //indicates an error
-		
-		return account.deposit(amount);
-	}
-	
-	
-	
-	public boolean withdraw(int accountNumber, double amount, String password) {
-		BankAccount account = getAccountById(accountNumber);
-		
-		//TODO: we must verify account exists
-		if(account==null)
-			return false; //indicates an error
-		
-		return account.withdraw(amount, password); //may return success or falure
+		account.withdraw(amount, password); //may return success or falure
 	}
 
 	
 	
-	public boolean transfer(int sourceAccountNumber,  double amount, String password,int targetAccountNumber) {
+	public void transfer(int sourceAccountNumber,  double amount, String password,int targetAccountNumber) {
 		
-		BankAccount src = getAccountById(sourceAccountNumber);
 		BankAccount target=getAccountById(targetAccountNumber);
+		BankAccount src = getAccountById(sourceAccountNumber);
 		
-		if(src==null)
-			return false;   //indicates an error
-		if(target==null) 
-			return false;  //indicates an error
-		 
+		src.withdraw(amount, password);
+		target.deposit(amount);
 		
-		if(src.withdraw(amount, password))
-			return target.deposit(amount);
-		else	
-			return false; //indicates an error
 	}
 
 	public void printAccountList() {
 
 		System.out.println("Account\tBalance\tName");
 		for(int i=1;i<=accountCount;i++) {
-			BankAccount a=accounts[i];
+			BankAccount a=accounts.get(i);
 			if(a!=null) //account may have been closed
-				System.out.printf("%d\t%f\t%s\n",a.getAccountNumber(),a.getBalance(),a.getName());
+				System.out.println(a); //use toString() method
 		}
 	}
 	
@@ -137,7 +132,7 @@ public class Bank {
 
 		System.out.println("Account\tBalance\tName");
 		for(int i=1;i<=accountCount;i++) {
-			BankAccount a=accounts[i];
+			BankAccount a=accounts.get(i);
 			
 				a.creditInterest(interestRate);
 		}
@@ -146,11 +141,16 @@ public class Bank {
 	public String getAccountInfo(int accountNumber, String pin) {
 		// TODO Auto-generated method stub
 		BankAccount account= getAccountById(accountNumber);
-		if(account!=null && account.authenticate(pin))
-			return account.toString();
+		account.authenticate(pin);
+		return account.toString();
 		
-		
-		return null; //indicates an error
+	}
+
+	public BankAccount getAccount(int accountNumber, String password) {
+		// TODO Auto-generated method stub
+		BankAccount account=getAccountById(accountNumber);
+		account.authenticate(password);
+		return account;
 	}
 	
 	
